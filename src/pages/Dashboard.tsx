@@ -1,23 +1,23 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Bike, Package, DollarSign, TrendingUp, Users, LogOut, 
-  LayoutDashboard, Settings, ChevronLeft 
+  LayoutDashboard, Settings, FileText, ChevronLeft, Clock, XCircle,
+  AlertTriangle, Layers, MapPin, Check
 } from 'lucide-react';
 import { useDelivery } from '@/hooks/useDelivery';
 import { StatCard } from '@/components/delivery/StatCard';
 import { MotoboyCard } from '@/components/delivery/MotoboyCard';
 import { AddMotoboyDialog } from '@/components/delivery/AddMotoboyDialog';
 import { AddPedidoDialog } from '@/components/delivery/AddPedidoDialog';
-import { PedidosList } from '@/components/delivery/PedidosList';
+import { PedidosTable } from '@/components/delivery/PedidosTable';
 import { RouteOptimizer } from '@/components/delivery/RouteOptimizer';
-import { OrderBatching } from '@/components/delivery/OrderBatching';
-import { SLAMonitor } from '@/components/delivery/SLAMonitor';
-import { MotoboyLoadCard } from '@/components/delivery/MotoboyLoadCard';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const Dashboard = () => {
   const { toast } = useToast();
@@ -35,7 +35,7 @@ const Dashboard = () => {
   } = useDelivery();
 
   const [selectedMotoboyId, setSelectedMotoboyId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('pedidos');
+  const [activeTab, setActiveTab] = useState('pendentes');
   const stats = getEstatisticas();
 
   const pedidosFiltrados = selectedMotoboyId 
@@ -46,12 +46,96 @@ const Dashboard = () => {
     ? motoboys.find(m => m.id === selectedMotoboyId) || null
     : null;
 
-  const handleAtribuirLote = (pedidoIds: string[], motoboyId: string) => {
-    // Em produção, isso atualizaria os pedidos para o motoboy selecionado
-    toast({
-      title: 'Lote atribuído!',
-      description: `${pedidoIds.length} pedidos foram atribuídos ao motoboy.`,
+  // Calcular pedidos por motoboy
+  const pedidosPorMotoboy = useMemo(() => {
+    const map: Record<string, number> = {};
+    pedidos.forEach(p => {
+      if (p.status === 'pendente' || p.status === 'em_rota') {
+        map[p.motoboyId] = (map[p.motoboyId] || 0) + 1;
+      }
     });
+    return map;
+  }, [pedidos]);
+
+  // Estatísticas avançadas
+  const advancedStats = useMemo(() => {
+    const cancelados = pedidos.filter(p => p.status === 'cancelado').length;
+    const entregues = pedidos.filter(p => p.status === 'entregue');
+    
+    // Tempo médio simulado (em produção viria do banco)
+    const tempoMedio = entregues.length > 0 ? 22 : 0;
+    
+    // Total a pagar aos motoboys
+    const totalPagar = motoboys.reduce((acc, m) => acc + m.totalValor, 0);
+    
+    // Carga média
+    const motoboysAtivos = motoboys.filter(m => m.status !== 'ausente');
+    const cargaMedia = motoboysAtivos.length > 0 
+      ? (stats.pedidosPendentes / motoboysAtivos.length).toFixed(1)
+      : '0';
+
+    return { cancelados, tempoMedio, totalPagar, cargaMedia };
+  }, [pedidos, motoboys, stats]);
+
+  // Pedidos em risco de SLA (>20 min)
+  const pedidosEmRisco = useMemo(() => {
+    const agora = new Date();
+    return pedidos.filter(p => {
+      if (p.status !== 'pendente') return false;
+      const [hora, minuto] = p.horario.split(':').map(Number);
+      const horarioPedido = new Date();
+      horarioPedido.setHours(hora, minuto, 0, 0);
+      const tempoEspera = Math.floor((agora.getTime() - horarioPedido.getTime()) / 60000);
+      return tempoEspera >= 20;
+    });
+  }, [pedidos]);
+
+  // Lotes sugeridos
+  const lotesSugeridos = useMemo(() => {
+    const pedidosPendentes = pedidos.filter(p => p.status === 'pendente');
+    if (pedidosPendentes.length < 2) return [];
+
+    const grupos: Record<string, typeof pedidosPendentes> = {};
+    pedidosPendentes.forEach(pedido => {
+      const palavras = pedido.endereco.split(' ');
+      const regiao = palavras.slice(0, 2).join(' ') || 'Centro';
+      if (!grupos[regiao]) grupos[regiao] = [];
+      grupos[regiao].push(pedido);
+    });
+
+    return Object.entries(grupos)
+      .filter(([, pedidos]) => pedidos.length >= 2)
+      .slice(0, 3)
+      .map(([regiao, pedidos], index) => ({
+        id: `lote-${index}`,
+        regiao,
+        pedidos,
+        distancia: `${(Math.random() * 500 + 100).toFixed(0)}m`,
+      }));
+  }, [pedidos]);
+
+  const handleAssign = (pedidoId: string, motoboyId: string) => {
+    // Em produção, atualizaria o motoboy do pedido
+    atualizarStatusPedido(pedidoId, 'em_rota');
+    atualizarStatusMotoboy(motoboyId, 'em_entrega');
+    toast({
+      title: 'Pedido atribuído!',
+      description: 'O motoboy foi notificado.',
+    });
+  };
+
+  const handleAtribuirLote = (loteId: string, motoboyId: string) => {
+    const lote = lotesSugeridos.find(l => l.id === loteId);
+    if (lote) {
+      lote.pedidos.forEach(p => {
+        atualizarStatusPedido(p.id, 'em_rota');
+      });
+      atualizarStatusMotoboy(motoboyId, 'em_entrega');
+      toast({
+        title: 'Lote atribuído!',
+        description: `${lote.pedidos.length} pedidos foram atribuídos.`,
+      });
+    }
   };
 
   return (
@@ -69,14 +153,18 @@ const Dashboard = () => {
 
         <nav className="flex-1 p-4">
           <div className="space-y-1">
-            <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary">
+            <Link to="/dashboard" className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary">
               <LayoutDashboard className="h-5 w-5" />
               Dashboard
-            </button>
-            <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-secondary/50 transition-colors">
+            </Link>
+            <Link to="/reports" className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-secondary/50 transition-colors">
+              <FileText className="h-5 w-5" />
+              Relatórios
+            </Link>
+            <Link to="/settings" className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-secondary/50 transition-colors">
               <Settings className="h-5 w-5" />
               Configurações
-            </button>
+            </Link>
           </div>
         </nav>
 
@@ -119,30 +207,35 @@ const Dashboard = () => {
         </header>
 
         <main className="flex-1 p-6 overflow-auto">
-          {/* Stats */}
+          {/* Stats - Melhorados */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <StatCard
-              title="Motoboys Ativos"
-              value={stats.motoboyAtivos}
-              icon={Users}
-              variant="primary"
-            />
             <StatCard
               title="Total Pedidos"
               value={stats.totalPedidos}
+              secondaryValue={advancedStats.cancelados}
+              secondaryLabel="cancelados"
               icon={Package}
             />
             <StatCard
               title="Entregues"
               value={stats.pedidosEntregues}
+              secondaryLabel={advancedStats.tempoMedio > 0 ? `Tempo médio: ${advancedStats.tempoMedio} min` : undefined}
               icon={TrendingUp}
               variant="success"
             />
             <StatCard
               title="Total Taxas"
               value={`R$ ${stats.taxasTotal.toFixed(2)}`}
+              secondaryLabel={`A pagar: R$ ${advancedStats.totalPagar.toFixed(2)}`}
               icon={DollarSign}
               variant="warning"
+            />
+            <StatCard
+              title="Motoboys Ativos"
+              value={stats.motoboyAtivos}
+              secondaryLabel={`Carga média: ${advancedStats.cargaMedia}`}
+              icon={Users}
+              variant="primary"
             />
           </div>
 
@@ -175,6 +268,7 @@ const Dashboard = () => {
                       <MotoboyCard
                         key={motoboy.id}
                         motoboy={motoboy}
+                        pedidosAtivos={pedidosPorMotoboy[motoboy.id] || 0}
                         isSelected={selectedMotoboyId === motoboy.id}
                         onClick={() => setSelectedMotoboyId(
                           selectedMotoboyId === motoboy.id ? null : motoboy.id
@@ -199,34 +293,50 @@ const Dashboard = () => {
                     }
                   </h2>
                   <TabsList className="glass">
-                    <TabsTrigger value="pedidos">Todos</TabsTrigger>
-                    <TabsTrigger value="pendentes">Pendentes</TabsTrigger>
+                    <TabsTrigger value="pendentes" className="gap-1">
+                      Pendentes
+                      {stats.pedidosPendentes > 0 && (
+                        <Badge variant="secondary" className="h-5 w-5 p-0 justify-center text-xs">
+                          {pedidos.filter(p => p.status === 'pendente').length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="em_rota" className="gap-1">
+                      Em Rota
+                      <Badge variant="secondary" className="h-5 w-5 p-0 justify-center text-xs">
+                        {pedidos.filter(p => p.status === 'em_rota').length}
+                      </Badge>
+                    </TabsTrigger>
                     <TabsTrigger value="entregues">Entregues</TabsTrigger>
                   </TabsList>
                 </div>
 
-                <TabsContent value="pedidos">
-                  <PedidosList
-                    pedidos={pedidosFiltrados}
+                <TabsContent value="pendentes">
+                  <PedidosTable
+                    pedidos={pedidosFiltrados.filter(p => p.status === 'pendente')}
                     motoboys={motoboys}
                     onStatusChange={atualizarStatusPedido}
                     onRemove={removerPedido}
+                    onAssign={handleAssign}
+                    showWaitTime={true}
                   />
                 </TabsContent>
-                <TabsContent value="pendentes">
-                  <PedidosList
-                    pedidos={pedidosFiltrados.filter(p => p.status === 'pendente' || p.status === 'em_rota')}
+                <TabsContent value="em_rota">
+                  <PedidosTable
+                    pedidos={pedidosFiltrados.filter(p => p.status === 'em_rota')}
                     motoboys={motoboys}
                     onStatusChange={atualizarStatusPedido}
                     onRemove={removerPedido}
+                    showWaitTime={true}
                   />
                 </TabsContent>
                 <TabsContent value="entregues">
-                  <PedidosList
+                  <PedidosTable
                     pedidos={pedidosFiltrados.filter(p => p.status === 'entregue')}
                     motoboys={motoboys}
                     onStatusChange={atualizarStatusPedido}
                     onRemove={removerPedido}
+                    showWaitTime={false}
                   />
                 </TabsContent>
               </Tabs>
@@ -234,34 +344,75 @@ const Dashboard = () => {
 
             {/* Right Sidebar - Monitoring */}
             <div className="lg:col-span-1 space-y-4">
-              <SLAMonitor pedidos={pedidos} motoboys={motoboys} />
-              
-              <RouteOptimizer pedidos={pedidos} motoboy={selectedMotoboy} />
-              
-              <OrderBatching 
-                pedidos={pedidos} 
-                motoboys={motoboys} 
-                onAtribuirLote={handleAtribuirLote}
-              />
-
-              {/* Motoboy Load Overview */}
-              {motoboys.length > 0 && (
-                <div className="glass rounded-xl p-4">
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <Users className="h-4 w-4 text-primary" />
-                    Carga dos Motoboys
-                  </h3>
+              {/* SLA Monitor - Pedidos em Risco */}
+              {pedidosEmRisco.length > 0 ? (
+                <div className="glass rounded-xl p-4 border-destructive/50 bg-destructive/5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="h-5 w-5 text-destructive animate-pulse" />
+                    <h3 className="font-semibold text-destructive">Pedidos em Risco!</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {pedidosEmRisco.length} pedidos esperando há mais de 20 minutos
+                  </p>
                   <div className="space-y-2">
-                    {motoboys.filter(m => m.status !== 'ausente').map(motoboy => (
-                      <MotoboyLoadCard 
-                        key={motoboy.id} 
-                        motoboy={motoboy} 
-                        pedidos={pedidos} 
+                    {pedidosEmRisco.slice(0, 3).map(pedido => (
+                      <div key={pedido.id} className="bg-background/50 rounded-lg p-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">#{pedido.numeroNota}</span>
+                          <span className="text-destructive text-xs">
+                            desde {pedido.horario}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{pedido.cliente}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="glass rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="h-5 w-5 text-success" />
+                    <h3 className="font-semibold">SLA OK</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum pedido em risco de atraso
+                  </p>
+                </div>
+              )}
+
+              {/* Lotes Sugeridos */}
+              {lotesSugeridos.length > 0 ? (
+                <div className="glass rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Layers className="h-5 w-5 text-primary" />
+                    <h3 className="font-semibold">Lotes Sugeridos</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {lotesSugeridos.map((lote, index) => (
+                      <LoteSugerido
+                        key={lote.id}
+                        lote={lote}
+                        index={index + 1}
+                        motoboys={motoboys.filter(m => m.status === 'disponivel')}
+                        onAtribuir={(motoboyId) => handleAtribuirLote(lote.id, motoboyId)}
                       />
                     ))}
                   </div>
                 </div>
+              ) : (
+                <div className="glass rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Layers className="h-5 w-5 text-muted-foreground" />
+                    <h3 className="font-semibold">Agrupamento</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum lote disponível. Lotes são criados quando há 2+ pedidos próximos.
+                  </p>
+                </div>
               )}
+
+              {/* Otimização de Rota */}
+              <RouteOptimizer pedidos={pedidos} motoboy={selectedMotoboy} />
             </div>
           </div>
         </main>
@@ -269,5 +420,81 @@ const Dashboard = () => {
     </div>
   );
 };
+
+// Componente de Lote Sugerido
+interface LoteSugeridoProps {
+  lote: { id: string; regiao: string; pedidos: any[]; distancia: string };
+  index: number;
+  motoboys: any[];
+  onAtribuir: (motoboyId: string) => void;
+}
+
+function LoteSugerido({ lote, index, motoboys, onAtribuir }: LoteSugeridoProps) {
+  const [selectedMotoboy, setSelectedMotoboy] = useState<string | null>(null);
+  const [showMotoboys, setShowMotoboys] = useState(false);
+
+  return (
+    <div className="bg-secondary/30 rounded-lg p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+            <span className="text-xs font-bold text-primary">{index}</span>
+          </div>
+          <span className="font-medium text-sm">{lote.regiao}</span>
+        </div>
+        <Badge variant="outline" className="text-xs">
+          {lote.distancia}
+        </Badge>
+      </div>
+      <div className="space-y-1 mb-2">
+        {lote.pedidos.map(p => (
+          <div key={p.id} className="text-xs text-muted-foreground flex items-center gap-1">
+            <MapPin className="h-3 w-3" />
+            <span>#{p.numeroNota}</span>
+          </div>
+        ))}
+      </div>
+      
+      {!showMotoboys ? (
+        <Button 
+          size="sm" 
+          className="w-full" 
+          variant="outline"
+          onClick={() => setShowMotoboys(true)}
+        >
+          Atribuir Lote
+        </Button>
+      ) : (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-1">
+            {motoboys.slice(0, 4).map(m => (
+              <button
+                key={m.id}
+                onClick={() => setSelectedMotoboy(m.id)}
+                className={cn(
+                  "p-1.5 rounded text-xs text-left transition-all",
+                  selectedMotoboy === m.id 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-background/50 hover:bg-background"
+                )}
+              >
+                {m.nome}
+              </button>
+            ))}
+          </div>
+          <Button 
+            size="sm" 
+            className="w-full gap-1"
+            disabled={!selectedMotoboy}
+            onClick={() => selectedMotoboy && onAtribuir(selectedMotoboy)}
+          >
+            <Check className="h-3 w-3" />
+            Confirmar
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default Dashboard;
