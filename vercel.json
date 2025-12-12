@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "outputDirectory": "frontend/dist",
   "builds": [
     {
       "src": "backend/src/main.ts",
@@ -15,7 +14,7 @@
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "frontend/dist"
+        "distDir": "dist"
       }
     }
   ],
