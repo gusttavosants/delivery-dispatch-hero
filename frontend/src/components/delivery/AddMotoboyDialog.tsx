@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Motoboy } from '@/types/delivery';
 
 interface AddMotoboyDialogProps {
-  onAdd: (dados: Omit<Motoboy, 'id' | 'totalEntregas' | 'totalValor'>) => void;
+  onAdd: (dados: Omit<Motoboy, 'id' | 'totalEntregas' | 'totalValor'>) => Promise<void>;
 }
 
 export function AddMotoboyDialog({ onAdd }: AddMotoboyDialogProps) {
@@ -22,13 +22,13 @@ export function AddMotoboyDialog({ onAdd }: AddMotoboyDialogProps) {
   const [telefone, setTelefone] = useState('');
   const [placa, setPlaca] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome.trim() || !telefone.trim() || !placa.trim()) return;
     
-    onAdd({
+    await onAdd({
       nome: nome.trim(),
-      telefone: telefone.trim(),
+      telefone: telefone.trim().toUpperCase(),
       placa: placa.trim().toUpperCase(),
       status: 'disponivel',
     });

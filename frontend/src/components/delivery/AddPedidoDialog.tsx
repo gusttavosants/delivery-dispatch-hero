@@ -23,7 +23,7 @@ import {
 interface AddPedidoDialogProps {
   motoboys: Motoboy[];
   selectedMotoboyId?: string;
-  onAdd: (dados: Omit<Pedido, 'id' | 'horario'>) => void;
+  onAdd: (dados: Omit<Pedido, 'id' | 'horario'>) => Promise<Pedido>;
 }
 
 export function AddPedidoDialog({ motoboys, selectedMotoboyId, onAdd }: AddPedidoDialogProps) {
@@ -36,11 +36,11 @@ export function AddPedidoDialog({ motoboys, selectedMotoboyId, onAdd }: AddPedid
   const [taxaEntrega, setTaxaEntrega] = useState('5.00');
   const [observacao, setObservacao] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!motoboyId || !numeroNota.trim() || !cliente.trim() || !endereco.trim()) return;
     
-    onAdd({
+    await onAdd({
       motoboyId,
       numeroNota: numeroNota.trim(),
       cliente: cliente.trim(),

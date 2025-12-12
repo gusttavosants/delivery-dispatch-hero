@@ -198,9 +198,9 @@ const Dashboard = () => {
                 <AddPedidoDialog 
                   motoboys={motoboys} 
                   selectedMotoboyId={selectedMotoboyId || undefined}
-                  onAdd={adicionarPedido} 
+                  onAdd={async (dados) => await adicionarPedido(dados)} 
                 />
-                <AddMotoboyDialog onAdd={adicionarMotoboy} />
+                <AddMotoboyDialog onAdd={async (dados) => {                  const novoMotoboy = await adicionarMotoboy(dados);                  setSelectedMotoboyId(novoMotoboy.id);                }} />
               </div>
             </div>
           </div>
