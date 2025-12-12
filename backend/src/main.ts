@@ -9,4 +9,4 @@ async function bootstrap() {
   return app.getHttpAdapter().getInstance();
 }
 
-export default bootstrap;</parameter
+export default bootstrap();
