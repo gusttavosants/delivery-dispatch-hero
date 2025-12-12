@@ -20,6 +20,9 @@ export class Motoboy {
   @Column()
   placa: string;
 
+  @Column({ select: false })
+  password: string;
+
   @Column({
     type: 'enum',
     enum: StatusMotoboy,

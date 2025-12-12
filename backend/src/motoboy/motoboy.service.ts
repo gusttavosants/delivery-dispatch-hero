@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Motoboy } from './motoboy.entity';
 import { CreateMotoboyDto, UpdateMotoboyDto } from './motoboy.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class MotoboyService {
@@ -23,8 +24,23 @@ export class MotoboyService {
     return motoboy;
   }
 
+  async findByTelefone(telefone: string): Promise<Motoboy> {
+    const motoboy = await this.motoboyRepository.findOne({
+      where: { telefone },
+      select: ['id', 'nome', 'telefone', 'placa', 'status', 'totalEntregas', 'totalValor', 'password'],
+    });
+    if (!motoboy) {
+      throw new Error('Motoboy not found');
+    }
+    return motoboy;
+  }
+
   async create(createMotoboyDto: CreateMotoboyDto): Promise<Motoboy> {
-    const motoboy = this.motoboyRepository.create(createMotoboyDto);
+    const hashedPassword = await bcrypt.hash(createMotoboyDto.password, 10);
+    const motoboy = this.motoboyRepository.create({
+      ...createMotoboyDto,
+      password: hashedPassword,
+    });
     return this.motoboyRepository.save(motoboy);
   }
 

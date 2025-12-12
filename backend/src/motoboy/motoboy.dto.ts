@@ -14,6 +14,9 @@ export class CreateMotoboyDto {
   @IsOptional()
   @IsEnum(StatusMotoboy)
   status?: StatusMotoboy;
+
+  @IsString()
+  password: string;
 }
 
 export class UpdateMotoboyDto {

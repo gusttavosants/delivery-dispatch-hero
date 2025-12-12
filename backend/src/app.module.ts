@@ -7,6 +7,7 @@ import { Pedido } from './pedido/pedido.entity';
 import { MotoboyModule } from './motoboy/motoboy.module';
 import { PedidoModule } from './pedido/pedido.module';
 import { StatisticsModule } from './statistics/statistics.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { StatisticsModule } from './statistics/statistics.module';
     MotoboyModule,
     PedidoModule,
     StatisticsModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
