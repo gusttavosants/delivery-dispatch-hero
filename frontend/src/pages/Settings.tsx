@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Bike, Settings as SettingsIcon, ArrowLeft, Users, DollarSign, 
-  Save, Plus, Trash2, Phone, CreditCard 
+  Save, Plus, Trash2, Phone, CreditCard, Plug, Shield, Calculator
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { IntegrationSettings } from '@/components/delivery/IntegrationSettings';
+import { UserRolesSettings } from '@/components/delivery/UserRolesSettings';
+import { AdvancedFeeSettings } from '@/components/delivery/AdvancedFeeSettings';
 
 interface MotoboyCadastro {
   id: string;
@@ -18,12 +21,6 @@ interface MotoboyCadastro {
   placa: string;
   pix: string;
   banco: string;
-}
-
-interface TaxaConfig {
-  taxaBase: number;
-  taxaPorKm: number;
-  kmGratis: number;
 }
 
 const Settings = () => {
@@ -40,12 +37,6 @@ const Settings = () => {
     placa: '',
     pix: '',
     banco: '',
-  });
-
-  const [taxaConfig, setTaxaConfig] = useState<TaxaConfig>({
-    taxaBase: 5.00,
-    taxaPorKm: 1.00,
-    kmGratis: 5,
   });
 
   const handleAddMotoboy = () => {
@@ -68,10 +59,6 @@ const Settings = () => {
     toast({ title: 'Motoboy removido' });
   };
 
-  const handleSaveTaxas = () => {
-    toast({ title: 'Configurações de taxas salvas!' });
-  };
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -90,7 +77,7 @@ const Settings = () => {
               <div>
                 <h1 className="text-xl font-bold">Configurações</h1>
                 <p className="text-xs text-muted-foreground">
-                  Gerencie motoboys e regras de taxas
+                  Gerencie motoboys, taxas, integrações e permissões
                 </p>
               </div>
             </div>
@@ -100,14 +87,22 @@ const Settings = () => {
 
       <main className="container mx-auto px-4 py-6">
         <Tabs defaultValue="motoboys" className="w-full">
-          <TabsList className="glass mb-6">
+          <TabsList className="glass mb-6 flex-wrap h-auto gap-1 p-1">
             <TabsTrigger value="motoboys" className="gap-2">
               <Users className="h-4 w-4" />
-              Gestão de Motoboys
+              Motoboys
             </TabsTrigger>
             <TabsTrigger value="taxas" className="gap-2">
-              <DollarSign className="h-4 w-4" />
-              Taxas e Regras
+              <Calculator className="h-4 w-4" />
+              Taxas Avançadas
+            </TabsTrigger>
+            <TabsTrigger value="integracoes" className="gap-2">
+              <Plug className="h-4 w-4" />
+              Integrações
+            </TabsTrigger>
+            <TabsTrigger value="usuarios" className="gap-2">
+              <Shield className="h-4 w-4" />
+              Usuários
             </TabsTrigger>
           </TabsList>
 
@@ -229,82 +224,15 @@ const Settings = () => {
           </TabsContent>
 
           <TabsContent value="taxas">
-            <div className="max-w-2xl">
-              <div className="glass rounded-xl p-6">
-                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-primary" />
-                  Configuração de Taxas
-                </h2>
+            <AdvancedFeeSettings />
+          </TabsContent>
 
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Label>Taxa Base por Entrega</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">R$</span>
-                      <Input 
-                        type="number"
-                        step="0.50"
-                        value={taxaConfig.taxaBase}
-                        onChange={(e) => setTaxaConfig(prev => ({ ...prev, taxaBase: parseFloat(e.target.value) }))}
-                        className="w-32"
-                      />
-                      <span className="text-sm text-muted-foreground">por entrega</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Valor fixo pago ao motoboy por cada entrega realizada
-                    </p>
-                  </div>
+          <TabsContent value="integracoes">
+            <IntegrationSettings />
+          </TabsContent>
 
-                  <div className="space-y-2">
-                    <Label>Taxa por Km Adicional</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">R$</span>
-                      <Input 
-                        type="number"
-                        step="0.10"
-                        value={taxaConfig.taxaPorKm}
-                        onChange={(e) => setTaxaConfig(prev => ({ ...prev, taxaPorKm: parseFloat(e.target.value) }))}
-                        className="w-32"
-                      />
-                      <span className="text-sm text-muted-foreground">por km</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Valor adicional por quilômetro após a distância gratuita
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Km Gratuitos</Label>
-                    <div className="flex items-center gap-2">
-                      <Input 
-                        type="number"
-                        value={taxaConfig.kmGratis}
-                        onChange={(e) => setTaxaConfig(prev => ({ ...prev, kmGratis: parseInt(e.target.value) }))}
-                        className="w-32"
-                      />
-                      <span className="text-sm text-muted-foreground">km</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Distância incluída na taxa base (sem cobrança adicional)
-                    </p>
-                  </div>
-
-                  <div className="pt-4 border-t border-border">
-                    <div className="bg-secondary/30 rounded-lg p-4 mb-4">
-                      <h4 className="font-medium mb-2">Exemplo de cálculo:</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Entrega de 8km = R$ {taxaConfig.taxaBase.toFixed(2)} + ({Math.max(0, 8 - taxaConfig.kmGratis)} km × R$ {taxaConfig.taxaPorKm.toFixed(2)}) = <span className="font-bold text-foreground">R$ {(taxaConfig.taxaBase + Math.max(0, 8 - taxaConfig.kmGratis) * taxaConfig.taxaPorKm).toFixed(2)}</span>
-                      </p>
-                    </div>
-
-                    <Button className="gap-2" onClick={handleSaveTaxas}>
-                      <Save className="h-4 w-4" />
-                      Salvar Configurações
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <TabsContent value="usuarios">
+            <UserRolesSettings />
           </TabsContent>
         </Tabs>
       </main>

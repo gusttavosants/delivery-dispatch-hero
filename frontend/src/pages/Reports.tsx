@@ -2,12 +2,16 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Bike, FileText, ArrowLeft, Calendar, Download, TrendingUp, 
-  Package, DollarSign, Clock, Users, XCircle, CheckCircle 
+  Package, DollarSign, Clock, Users, XCircle, CheckCircle, Wallet, BarChart3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
+import { ValesModule, Vale } from '@/components/delivery/ValesModule';
+import { PDFGenerator } from '@/components/delivery/PDFGenerator';
+import { TrendsReport } from '@/components/delivery/TrendsReport';
+import { MotoboyTracker } from '@/components/delivery/MotoboyTracker';
 
 interface DailyReport {
   totalPedidos: number;
@@ -24,17 +28,44 @@ interface DailyReport {
   }>;
 }
 
-interface MotoboyPerformance {
-  nome: string;
-  entregas: number;
-  cancelamentos: number;
-  tempoMedio: number;
-  taxaTotal: number;
-  avaliacao: number;
-}
-
 const Reports = () => {
   const [selectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Mock motoboys data
+  const motoboys = [
+    { id: '1', nome: 'João Silva', totalValor: 95, entregas: 15, status: 'em_entrega' },
+    { id: '2', nome: 'Carlos Santos', totalValor: 78, entregas: 12, status: 'disponivel' },
+    { id: '3', nome: 'Pedro Lima', totalValor: 65, entregas: 10, status: 'em_entrega' },
+    { id: '4', nome: 'Lucas Souza', totalValor: 47.5, entregas: 5, status: 'disponivel' },
+  ];
+
+  // Mock pedidos
+  const pedidos = motoboys.flatMap(m => 
+    Array.from({ length: m.entregas }, (_, i) => ({
+      id: `${m.id}-${i}`,
+      motoboyId: m.id,
+      status: 'entregue',
+      taxa: 5,
+    }))
+  );
+
+  // Vales state
+  const [vales, setVales] = useState<Vale[]>([
+    { id: '1', motoboyId: '1', motoboyNome: 'João Silva', valor: 50, data: '2024-01-15', motivo: 'Combustível', status: 'pendente' },
+    { id: '2', motoboyId: '2', motoboyNome: 'Carlos Santos', valor: 30, data: '2024-01-14', motivo: 'Alimentação', status: 'descontado' },
+  ]);
+
+  const handleAddVale = (vale: Omit<Vale, 'id' | 'status'>) => {
+    setVales(prev => [...prev, { ...vale, id: Date.now().toString(), status: 'pendente' }]);
+  };
+
+  const handleRemoveVale = (id: string) => {
+    setVales(prev => prev.filter(v => v.id !== id));
+  };
+
+  const handleDescontarVale = (id: string) => {
+    setVales(prev => prev.map(v => v.id === id ? { ...v, status: 'descontado' } : v));
+  };
 
   // Dados simulados para o fechamento diário
   const dailyReport: DailyReport = {
@@ -51,14 +82,6 @@ const Reports = () => {
       { nome: 'Lucas Souza', entregas: 5, taxas: 47.50, tempoMedio: 28 },
     ],
   };
-
-  // Dados de performance por motoboy
-  const motoboyPerformance: MotoboyPerformance[] = [
-    { nome: 'João Silva', entregas: 145, cancelamentos: 2, tempoMedio: 18, taxaTotal: 920.00, avaliacao: 4.8 },
-    { nome: 'Carlos Santos', entregas: 120, cancelamentos: 5, tempoMedio: 22, taxaTotal: 780.00, avaliacao: 4.5 },
-    { nome: 'Pedro Lima', entregas: 98, cancelamentos: 3, tempoMedio: 25, taxaTotal: 640.00, avaliacao: 4.6 },
-    { nome: 'Lucas Souza', entregas: 75, cancelamentos: 8, tempoMedio: 28, taxaTotal: 485.00, avaliacao: 4.2 },
-  ];
 
   const successRate = ((dailyReport.entregues / dailyReport.totalPedidos) * 100).toFixed(1);
 
@@ -81,21 +104,18 @@ const Reports = () => {
                 <div>
                   <h1 className="text-xl font-bold">Relatórios</h1>
                   <p className="text-xs text-muted-foreground">
-                    Fechamento diário e performance
+                    Fechamento, vales e performance
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
+              <PDFGenerator motoboys={motoboys} pedidos={pedidos} vales={vales} />
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/50">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">{new Date(selectedDate).toLocaleDateString('pt-BR')}</span>
               </div>
-              <Button variant="outline" className="gap-2">
-                <Download className="h-4 w-4" />
-                Exportar
-              </Button>
             </div>
           </div>
         </div>
@@ -103,14 +123,22 @@ const Reports = () => {
 
       <main className="container mx-auto px-4 py-6">
         <Tabs defaultValue="fechamento" className="w-full">
-          <TabsList className="glass mb-6">
+          <TabsList className="glass mb-6 flex-wrap h-auto gap-1 p-1">
             <TabsTrigger value="fechamento" className="gap-2">
               <FileText className="h-4 w-4" />
-              Fechamento Diário
+              Fechamento
             </TabsTrigger>
-            <TabsTrigger value="performance" className="gap-2">
+            <TabsTrigger value="vales" className="gap-2">
+              <Wallet className="h-4 w-4" />
+              Vales
+            </TabsTrigger>
+            <TabsTrigger value="rastreamento" className="gap-2">
               <TrendingUp className="h-4 w-4" />
-              Performance dos Motoboys
+              Rastreamento
+            </TabsTrigger>
+            <TabsTrigger value="tendencias" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Tendências
             </TabsTrigger>
           </TabsList>
 
@@ -288,6 +316,24 @@ const Reports = () => {
                 </div>
               </ScrollArea>
             </div>
+          </TabsContent>
+
+          <TabsContent value="vales">
+            <ValesModule
+              motoboys={motoboys}
+              vales={vales}
+              onAddVale={handleAddVale}
+              onRemoveVale={handleRemoveVale}
+              onDescontarVale={handleDescontarVale}
+            />
+          </TabsContent>
+
+          <TabsContent value="rastreamento">
+            <MotoboyTracker motoboys={motoboys} />
+          </TabsContent>
+
+          <TabsContent value="tendencias">
+            <TrendsReport />
           </TabsContent>
         </Tabs>
       </main>
