@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Bike, MapPin, Package, Users, Clock, TrendingUp, ArrowRight, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const Landing = () => {
   const features = [
@@ -48,6 +49,7 @@ const Landing = () => {
               <span className="text-xl font-bold">DeliveryControl</span>
             </div>
             <div className="flex items-center gap-4">
+              <ThemeToggle />
               <Link to="/login">
                 <Button variant="ghost">Entrar</Button>
               </Link>

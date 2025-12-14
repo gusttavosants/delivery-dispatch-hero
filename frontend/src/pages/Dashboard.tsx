@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const Dashboard = () => {
   const { toast } = useToast();
@@ -195,6 +196,7 @@ const Dashboard = () => {
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                <ThemeToggle />
                 <AddPedidoDialog 
                   motoboys={motoboys} 
                   selectedMotoboyId={selectedMotoboyId || undefined}
